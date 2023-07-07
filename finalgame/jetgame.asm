@@ -133,7 +133,12 @@ StartFrame:
     sta PF1
     sta PF2
     sta GRP0
-    sta GRP1                 ; reset TIA registers before displaying the score
+    sta GRP1                 
+    sta CTRLPF               
+    sta COLUBK               ; reset TIA registers before displaying the score
+
+    lda #$1E
+    sta COLUPF               ; set the scoreboard playfield color as yellow
 
     ldx #DIGITS_HEIGHT       ; start X counter with 5 (height of digits)
 
@@ -183,8 +188,16 @@ StartFrame:
 
     sta WSYNC
 
+    lda #0
+    sta PF0
+    sta PF1
+    sta PF2
+    sta WSYNC
+    sta WSYNC
+    sta WSYNC
+
 ;;;;;;;;;;;;;;;;;;
-;;; Display the 96 visible scanlines of our main game (because of 2 line kernel)
+;;; Display the visible scanlines of our main game (using 2 line kernel)
 ;;;;;;;;;;;;;;;;;;
 GameVisibleLine:
     lda #$84
@@ -200,7 +213,7 @@ GameVisibleLine:
     lda #0
     sta PF2                  ; setting PF2 bit pattern
 
-    ldx #84                 ; X counts the number of remaining scanlines
+    ldx #85                 ; X counts the number of remaining scanlines
 .GameLineLoop:
 .AreWeInsideJetSprite:       ; check if should render sprite player0
     txa                      ; transfer X to A
@@ -228,7 +241,7 @@ GameVisibleLine:
     lda #0                   ; else, set index to 0
 .DrawSpriteP1:
     tay
-    lda #%0000101
+    lda #%00000101
     sta NUSIZ1               ; stretch player1 sprite
     lda (BomberSpritePtr),Y  ; load player bitmap slice of data
     sta WSYNC                ; wait for next scanline
