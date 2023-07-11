@@ -141,6 +141,8 @@ StartFrame:
 
     jsr CalculateDigitOffset ; calculate scoreboard digits lookup table offset
 
+    jsr GenerateJetSound     ; configure and enable our jet engine audio
+
     sta WSYNC
     sta HMOVE                ; apply the horizontal offsets previously set
 
@@ -245,7 +247,7 @@ GameVisibleLine:
     txa                      ; transfer X to A
     sec                      ; make sure carry flag is set
     sbc JetYPos              ; subtract sprite Y coordinate
-    cmp JET_HEIGHT           ; are we inside the sprite height bounds?
+    cmp #JET_HEIGHT           ; are we inside the sprite height bounds?
     bcc .DrawSpriteP0        ; if result < SpriteHeight, call subroutine
     lda #0                   ; else, set lookup index to 0
 .DrawSpriteP0:
@@ -262,7 +264,7 @@ GameVisibleLine:
     txa                      ; transfer X to A
     sec                      ; make sure carry flag is set
     sbc BomberYPos           ; subtract sprite Y coordinate
-    cmp BOMBER_HEIGHT        ; are we inside the sprite height bounds?
+    cmp #BOMBER_HEIGHT        ; are we inside the sprite height bounds?
     bcc .DrawSpriteP1        ; if result < SpriteHeight, call subroutine
     lda #0                   ; else, set index to 0
 .DrawSpriteP1:
@@ -330,7 +332,7 @@ CheckP0Left:
     bmi CheckP0Right         ;    then: skip decrement
 .P0LeftPressed:
     dec JetXPos
-    lda JET_HEIGHT           ; 9
+    lda #JET_HEIGHT           ; 9
     sta JetAnimOffset        ; set animation offset to the second frame
 
 CheckP0Right:
@@ -342,7 +344,7 @@ CheckP0Right:
     bpl CheckButtonPressed        ;    then: skip increment
 .P0RightPressed:
     inc JetXPos
-    lda JET_HEIGHT           ; 9
+    lda #JET_HEIGHT           ; 9
     sta JetAnimOffset        ; set animation offset to the second frame
 
 CheckButtonPressed:
@@ -358,7 +360,6 @@ CheckButtonPressed:
     clc
     adc #8
     sta MissileYPos          ; set the missile Y position equal to the player 0
-
 
 EndInputCheck:               ; fallback when no input was performed
 
@@ -377,10 +378,6 @@ UpdateBomberPosition:
 
 .SetScoreValues:
     sed                      ; set BCD mode for score and timer values
-    lda Score
-    clc
-    adc #1
-    sta Score                ; add 1 to the Score (BCD does not like INC)
     lda Timer
     clc
     adc #1
@@ -397,9 +394,24 @@ CheckCollisionP0P1:
     bit CXPPMM               ; check CXPPMM bit 7 with the above pattern
     bne .P0P1Collided        ; if collision between P0 and P1 happened, branch
     jsr SetTerrainRiverColor ; else, set playfield color to green/blue
-    jmp EndCollisionCheck    ; skip to next check
+    jmp CheckCollisionM0P1    ; skip to next check
 .P0P1Collided:
     jsr GameOver             ; call GameOver subroutine
+
+CheckCollisionM0P1:
+    lda #%10000000           ; CXM0P bit 7 detects M0 and P1 collision
+    bit CXM0P                ; check CXM0P bit 7 with the above pattern
+    bne .M0P1Collided        ; collision missile 0 and player 1 happened
+    jmp EndCollisionCheck
+.M0P1Collided:
+    sed
+    lda Score
+    clc
+    adc #1
+    sta Score                ; adds 1 to the Score using decimal mode
+    cld
+    lda #0
+    sta MissileYPos          ; reset the missile position
 
 EndCollisionCheck:           ; fallback
     sta CXCLR                ; clear all collision flags before the next frame
@@ -409,6 +421,32 @@ EndCollisionCheck:           ; fallback
 ;;; Loop back to start a brand new frame
 ;;;;;;;;;;;;;;;;;;
     jmp StartFrame           ; continue to display the next frame
+
+;;;;;;;;;;;;;;;;;;
+;;; Generate audio for the jet engine sound based on the jet y-position
+;;;;;;;;;;;;;;;;;;
+;;; The frequency/pitch will be modified based on the jet current y-position.
+;;; Normally, the TIA audio frequency goes from 0 (highest) to 31 (lowest).
+;;; We subtract 31 - (JetYPos/8) to achieve the desired final pitch value.
+;;;;;;;;;;;;;;;;;;
+GenerateJetSound subroutine
+    lda #3
+    sta AUDV0                ; set the audio volume register
+
+    lda #8
+    sta AUDC0                ; set the audio control register to white noise
+
+    lda JetYPos              ; loads the accumulator with the jet y-position
+    lsr
+    lsr
+    lsr                      ; divide the accumulator by 8 (using right-shifts)
+    sta Temp                 ; save the Y/8 value in a temp variable
+    lda #31
+    sec
+    sbc Temp                 ; subtract 31-(Y/8)
+    sta AUDF0                ; set the audio frequency/pitch register
+
+    rts
 
 ;;;;;;;;;;;;;;;;;;
 ;;; Set the colors for the terrain and river to green & blue
