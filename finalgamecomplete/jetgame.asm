@@ -153,13 +153,14 @@ StartFrame:
 ;;; Display the scoreboard lines
 ;;;;;;;;;;;;;;;;;;
     lda #0
+    sta COLUBK               ; reset TIA registers before displaying the score
+
     sta PF0
     sta PF1
     sta PF2
     sta GRP0
     sta GRP1                 
     sta CTRLPF               
-    sta COLUBK               ; reset TIA registers before displaying the score
 
     lda #$1E
     sta COLUPF               ; set the scoreboard playfield color as yellow
